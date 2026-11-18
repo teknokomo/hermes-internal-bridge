@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# State and secrets — never commit
+*.sqlite3
+*.sqlite3-*
+*.sqlite3-wal
+*.sqlite3-shm
+.env
+.env.*
+*.log
+*.pid
+
+# Agent-local scratch
+memory-bank/
+.backup/
+
+# Tool session artifacts
+.zcode/

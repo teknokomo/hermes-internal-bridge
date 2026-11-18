@@ -1,0 +1,47 @@
+{
+  "relay": {
+    "enabled": false,
+    "ignore_forwarded_mentions": true,
+    "max_hops": 1,
+    "dedupe_window_seconds": 86400,
+    "handoff_ack": true,
+    "ack_text": "передано"
+  },
+  "directory": {
+    "refresh_seconds": 60,
+    "profiles": [
+      {
+        "profile": "target-profile",
+        "description": "Рабочий профиль-исполнитель",
+        "capabilities": ["code", "research"]
+      }
+    ]
+  },
+  "bus": {
+    "poll_seconds": 2.0,
+    "lease_seconds": 300,
+    "max_attempts": 5,
+    "backoff_seconds": [5, 30, 120, 600],
+    "availability_poll_seconds": 60
+  },
+  "ledger": {
+    "state_path": "${HERMES_ROOT}/plugin-data/hermes-internal-bridge/hib.sqlite3",
+    "retention_done_days": 14
+  },
+  "limits": {
+    "max_payload_bytes": 65536,
+    "max_summary_chars": 4000
+  },
+  "transcription": {
+    "provider": "none",
+    "model": "whisper-1",
+    "api_key_env": "",
+    "language": ""
+  },
+  "approvals": {
+    "enabled": false
+  },
+  "federation": {
+    "enabled": false
+  }
+}
