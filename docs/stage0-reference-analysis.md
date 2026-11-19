@@ -1,7 +1,7 @@
 # Этап 0. Анализ референс-репозитория (§13 ТЗ)
 
 **Референс:** https://github.com/teknokomo/hermes-multica-bridge, ветка `main`
-**Клон:** `D:\VSC\hermes-multica-bridge` (только чтение, изменений не вносилось)
+**Клон:** локальный read-only клон референса (вне рабочего каталога плагина, изменений не вносилось)
 **Зафиксированный HEAD:** `c7f06cfb736e1cd2fb2e0288640be17f49c705b2` (`c7f06cf`, 2026-11-17, «Merge pull request #23: 0.7.0 runtime routing and approval wake»)
 Все ссылки `файл:строка` даны по этому коммиту.
 

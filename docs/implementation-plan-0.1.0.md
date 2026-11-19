@@ -4,13 +4,13 @@
 Вердикт доставки: **вариант B** (экземпляр HIB в каждом целевом профиле + общая шина; C не проходит — `gateway/run_plugin_injection.py:262`, `gateway/profile_routing.py:1–4`), A — только ack/mirror.
 Разрешение на реализацию получено (2026-11-19, правки ТЗ 1–4 и 6 приняты, правка 5 снята).
 
-## Дополнения Омисы (2026-11-19) — внесены в дизайн
+## Дополнения ревью приёмки (2026-11-19) — внесены в дизайн
 
 1. **Транскрипция голоса — в исходном профиле, асинхронно после `pre_gateway_dispatch`.** В шину попадают только транскрипт и ссылка на оригинал, скопированный в область HIB исходного профиля. Consumer целевого профиля аудио не читает и не транскрибирует.
 2. **Отдельный тест:** доставка в целевую тему, где ещё не было ни одного человеческого сообщения. Если `inject_message` возвращает `False` — ack не утверждает доставку; статус `relay_target_unavailable`, сообщение остаётся `queued`.
 3. **Резолв корневого Hermes home** для общей шины доказать кодом и тестом на два случая: профиль, отличный от default, и сам default. `get_hermes_home()` возвращает профильный home — недостаточно. Реализация: `hermes_constants.get_default_hermes_root()` (есть в v0.23.1, ~:264) + защитная деривация `<root>/profiles/<name> → root`; тесты на оба случая.
 
-## Ограничения (от Омисы)
+## Ограничения (утверждены на ревью приёмки)
 
 - Production — Linux, Hermes 0.23.1+custom; dev — Windows 0.23.2. **API только из 0.23.1** (проверено по тегу v0.23.1: `hermes_constants.get_default_hermes_root/get_hermes_home`, `VALID_HOOKS` c `pre_gateway_dispatch/post_gateway_admission/pre_transcription`, allowlist `hermes_cli/data/plugin_api.json` с `hermes_constants`, `hermes_cli.config`, `hermes_cli.plugin_session:session_client`, `gateway.platforms.base/event/helpers`, `hermes_cli.plugin_events`, `plugins.plugin_storage`). Тесты обязаны проходить на Linux (CI-план).
 - Общая БД шины: только конверты и метаданные; памяти, credentials и `.env` там нет; 0700 на Linux, NTFS ACL на Windows; фильтрация выборок по `target_profile` покрыта тестом; DLQ и replay — только оператор.
@@ -30,7 +30,7 @@
 
 ## Этапы
 
-**R0. Скелет репозитория** — `git init D:\VSC\hermes-internal-bridge`; структура по Этапу 0: `plugin.yaml` (manifest v2, `requires_hermes: ">=0.23.1"`, `kind: standalone`, `provides_tools` ×7, `config_schema` §9.1), `__init__.py` c `register(ctx)`, `hermes_internal_bridge/`, `pyproject.toml` (setuptools, `requires-python >=3.11`, data-files `share/hermes/plugins/hermes-internal-bridge/…`), `MANIFEST.in`+`MANIFEST.sha256`, пары EN/RU (README, LICENSE), `SECURITY.md`, `CHANGELOG.md`, `AGENTS.md`, `CLAUDE.md`, `config/*.example.*`, `tests/`, `deploy/README.md` (Windows-операторские шаги), `docs/`. uv venv + `pytest`, `ruff`, `[tool.pytest.ini_options]`.
+**R0. Скелет репозитория** — инициализировать git-репозиторий в каталоге плагина; структура по Этапу 0: `plugin.yaml` (manifest v2, `requires_hermes: ">=0.23.1"`, `kind: standalone`, `provides_tools` ×7, `config_schema` §9.1), `__init__.py` c `register(ctx)`, `hermes_internal_bridge/`, `pyproject.toml` (setuptools, `requires-python >=3.11`, data-files `share/hermes/plugins/hermes-internal-bridge/…`), `MANIFEST.in`+`MANIFEST.sha256`, пары EN/RU (README, LICENSE), `SECURITY.md`, `CHANGELOG.md`, `AGENTS.md`, `CLAUDE.md`, `config/*.example.*`, `tests/`, `deploy/README.md` (Windows-операторские шаги), `docs/`. uv venv + `pytest`, `ruff`, `[tool.pytest.ini_options]`.
 
 **R1. Ядро данных** — `envelope.py` (валидация §9.2: kind, `hop≤1`, ttl, relay/correlation/causation id), `errors.py` (коды §10), `db.py` (схема §9.3 + `schema_migrations`, WAL, короткие транзакции, ACL-установка директории). Тесты: `test_envelope.py`, `test_errors.py`, `test_db.py`.
 
@@ -50,12 +50,12 @@
 
 **R9. Интеграция (фейки, без сети)** — по §14.2: DM→route→target (ровно одно сообщение + один ack), mirror без петли, A→B корреляция по `correlation_id`, рестарт gateway (queued доставляется), недоступный target (без потери и без default), конфликт маршрутов. Тестовый профиль: `hermes profile create hib-test`, установка плагина `--no-enable`/`adopt`, локальный `hermes gateway run` без платформ.
 
-**R10. Приёмка** — `pytest` (число тестов в отчёте), `hermes plugins validate D:\VSC\hermes-internal-bridge --json` → passed, `hermes plugins doctor D:\VSC\hermes-internal-bridge --ci` → tools зарегистрированы, сканер секретов по дампу ledger/логов — 0 совпадений; инструкции ручной приёмки §14.3 — `deploy/README.md` для Омисы/оператора; отчёт `NOT TOUCHED`.
+**R10. Приёмка** — `pytest` (число тестов в отчёте), `hermes plugins validate <каталог плагина> --json` → passed, `hermes plugins doctor <каталог плагина> --ci` → tools зарегистрированы, сканер секретов по дампу ledger/логов — 0 совпадений; инструкции ручной приёмки §14.3 — `deploy/README.md` для оператора; отчёт `NOT TOUCHED`.
 
 ## Требует операторских прав / решений владельца
 
 - Установка/обновление ПО на машине (выполнено в Этапе 1).
-- Создание тестовых чатов и токенов ботов — у Омисы в основном Hermes (не на этой машине); выдача токенов — оператор.
+- Создание тестовых чатов и токенов ботов — в основном Hermes владельца (не на dev-машине); выдача токенов — оператор.
 - `hermes profile create hib-test` — оператор запускает (или даёт команду агенту).
 - Включение плагина в целевых профилях и `plugins.entries.hermes-internal-bridge.allow_gateway_injection: true` — оператор.
 - Включение маршрутов (`hib routes enable …`) — только оператор, никогда — код.

@@ -105,7 +105,7 @@ def test_oversized_message_rejected_with_error_ack(tmp_path):
 
 
 def test_voice_message_transcribes_in_source_profile(tmp_path):
-    """Omisa addition #1 + FR-002: transcript + reference enter the bus, audio never does."""
+    """Source-profile transcription + FR-002: transcript + reference enter the bus, audio never does."""
     audio_path = tmp_path / "voice.ogg"
     audio_path.write_bytes(b"fake-bytes")
     provider = FakeProvider(text="распознанный текст голосового")
@@ -115,7 +115,10 @@ def test_voice_message_transcribes_in_source_profile(tmp_path):
     result = components.intake.handle_event(event)
     assert result["action"] == "skip"
     assert any("голосовое" in text for _, text in acks)
-    ok = drain_until(lambda: components.bus.counts()["queued"] == 1)
+    # the worker enqueues first and ledgers afterwards; wait for BOTH markers so
+    # the assertions below cannot race ahead of the worker's ledger write
+    ok = drain_until(lambda: components.bus.counts()["queued"] == 1
+                     and components.ledger.count_events("relay_transcribed") == 1)
     assert ok, "transcription worker did not finish"
     row = components.bus.list_by_status("queued", target_profile="target-profile")[0]
     envelope = __import__("hermes_internal_bridge.envelope", fromlist=["Envelope"]).Envelope.from_json(

@@ -27,3 +27,4 @@ memory-bank/
 
 # Tool session artifacts
 .zcode/
+*.bundle

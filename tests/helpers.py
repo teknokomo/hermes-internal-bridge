@@ -40,7 +40,7 @@ class FakeEvent:
 
 
 class FakeProvider:
-    """Scriptable transcription provider (Omisa addition #1 test seam)."""
+    """Scriptable transcription provider (transcription provider test seam)."""
 
     def __init__(self, text="распознанный текст", error=None):
         self.text = text

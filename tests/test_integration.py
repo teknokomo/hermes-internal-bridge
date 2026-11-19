@@ -184,7 +184,9 @@ def test_ledger_and_logs_have_no_secrets(tmp_path):
     # the message text itself is payload, not a secret; the scanner must find
     # no TOKEN-CLASS matches
     assert find_secrets(dump) == []
-    assert "sk-abc123DEF456ghi789JKL" not in dump or True  # payload text is allowed in envelope
+    # the token from the user's message lives only in the envelope payload
+    # (hib_messages), never in the ledger dump
+    assert "sk-abc123DEF456ghi789JKL" not in dump
     # the ledger must not contain secrets in ERROR DETAILS either
     for record in components.ledger.all_records():
         details = json.dumps(record.get("details_json", ""), ensure_ascii=False)

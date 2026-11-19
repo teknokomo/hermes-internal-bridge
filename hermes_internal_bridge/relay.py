@@ -3,7 +3,7 @@
 Normalizes the inbound event, runs the trigger gate, resolves the route,
 enqueues the envelope on the shared bus, and schedules exactly one ack. Voice
 messages are transcribed asynchronously in the SOURCE profile after the hook
-returns (Omisa addition #1): only the transcript and a reference to the
+returns (source-profile transcription rule): only the transcript and a reference to the
 original copied into the HIB area ever reach the bus.
 """
 
@@ -188,7 +188,7 @@ class RelayIntake:
         self._ack(source, "принято: голосовое, распознаю…")
 
     def _transcribe_worker(self, envelope: Envelope, route) -> None:
-        """Omisa addition #1: transcription runs here, in the source profile, off the hook path."""
+        """Source-profile transcription rule: transcription runs in the source profile, off the hook path."""
         try:
             ref = (envelope.payload.get("attachments") or [{}])[0]
             text = self.transcription_provider.transcribe(Path(ref.get("uri", "")))

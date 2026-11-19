@@ -1,4 +1,4 @@
-"""Voice transcription in the SOURCE profile (Omisa's addition #1).
+"""Voice transcription in the SOURCE profile, asynchronously after the hook (FR-002).
 
 Transcription runs asynchronously after ``pre_gateway_dispatch``: the intake
 hook only copies the audio into the HIB area of the source profile and queues

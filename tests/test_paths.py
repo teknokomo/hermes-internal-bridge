@@ -1,4 +1,4 @@
-"""Root Hermes home resolution (Omisa addition #3): two cases proven by tests."""
+"""Root Hermes home resolution (shared-root rule): two cases proven by tests."""
 
 from hermes_internal_bridge import paths
 

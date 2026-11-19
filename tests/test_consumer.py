@@ -1,4 +1,4 @@
-"""Consumer (variant B): injection, availability (Omisa #2), mirror, handoff result."""
+"""Consumer (variant B): injection, availability (inject-false rule), mirror, handoff result."""
 
 import time
 
@@ -54,7 +54,7 @@ def test_inject_true_marks_delivered(tmp_path):
 
 
 def test_inject_false_keeps_message_queued_without_loss(tmp_path):
-    """Omisa addition #2: inject_message False → relay_target_unavailable, stays queued."""
+    """Availability rule: inject_message False → relay_target_unavailable, stays queued."""
     components, _ = make_components(tmp_path, profile="target-profile", roster=[{"profile": "target-profile"}])
     consumer = make_consumer(components, injector=FakeInjector(False))
     envelope = enqueue_message(components.bus)
@@ -93,7 +93,7 @@ def test_unknown_target_profile_blocks_route(tmp_path):
 
 
 def test_consumer_cannot_touch_other_profile_messages(tmp_path):
-    """Security: scoping by target_profile (Omisa constraint)."""
+    """Security: scoping by target_profile (security constraint)."""
     components, _ = make_components(tmp_path, profile="profile-a",
                                     roster=[{"profile": "target-profile"}])
     consumer = make_consumer(components, injector=FakeInjector(True))

@@ -4,7 +4,7 @@ Two loops run per profile:
 
 * agent loop — claims agent-bound messages, injects them into the profile's own
   sessions via ``ctx.inject_message``; ``False`` means the target topic is not
-  reachable yet (Omisa addition #2): the message stays ``queued`` with
+  reachable yet (availability rule): the message stays ``queued`` with
   ``relay_target_unavailable``, and the source is notified exactly once;
 * display loop — claims mirror copies and notices and sends them to a chat via
   the profile's own adapter identity (never borrows another profile's bot).
@@ -125,7 +125,7 @@ class ProfileConsumer:
             self._ledger("relay_delivered", relay_id, route_id=row.get("route_id", ""),
                          details={"target_chat": envelope.destination.get("chat_id", "")})
         else:
-            # Omisa addition #2: no human message ever reached the target topic —
+            # Availability rule: no human message ever reached the target topic —
             # inject_message returned False; the message stays queued (FR-006).
             self._fail_unavailable(envelope, row)
 
