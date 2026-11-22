@@ -25,6 +25,5 @@ htmlcov/
 memory-bank/
 .backup/
 
-# Tool session artifacts
-.zcode/
+# Build artifacts
 *.bundle
