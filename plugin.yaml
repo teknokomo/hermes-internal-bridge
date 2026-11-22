@@ -1,0 +1,91 @@
+name: hermes-internal-bridge
+version: "0.1.0"
+manifest_version: 2
+requires_hermes: ">=0.23.1"
+description: "Internal bridge between Hermes profiles: chat relay with a trigger gate, deterministic route policy, a durable local message bus, context handoff, artifact references, and an audit ledger."
+author: Universo
+license: "LicenseRef-Omsk-Open-License-Basic-Attribution"
+kind: standalone
+platforms:
+  - linux
+  - windows
+provides_tools:
+  - hib_status
+  - hib_routes_list
+  - hib_relay_send
+  - hib_bus_send
+  - hib_bus_read
+  - hib_bus_ack
+  - hib_directory
+provides_hooks:
+  - pre_gateway_dispatch
+  - post_llm_call
+tags:
+  - relay
+  - profiles
+  - bridge
+  - policy
+config_schema:
+  relay:
+    type: dict
+    label: "Relay"
+    description: "Релей чатов: приём сообщений из личных чатов, триггер-гейт и подтверждения. По умолчанию выключен."
+    default:
+      enabled: false
+      ignore_forwarded_mentions: true
+      max_hops: 1
+      dedupe_window_seconds: 86400
+      handoff_ack: true
+      ack_text: "передано"
+  directory:
+    type: dict
+    label: "Directory"
+    description: "Реестр локальных профилей для каталога и проверки доступности цели."
+    default:
+      refresh_seconds: 60
+      profiles: []
+  bus:
+    type: dict
+    label: "Bus"
+    description: "Параметры durable-шины между профилями: lease, повторы, мёртвая очередь."
+    default:
+      poll_seconds: 2.0
+      lease_seconds: 300
+      max_attempts: 5
+      backoff_seconds: [5, 30, 120, 600]
+      availability_poll_seconds: 60
+  ledger:
+    type: dict
+    label: "Ledger"
+    description: "Аудит и путь состояния общей шины (одна база на хост, доступна всем профилям)."
+    default:
+      state_path: "${HERMES_ROOT}/plugin-data/hermes-internal-bridge/hib.sqlite3"
+      retention_done_days: 14
+  limits:
+    type: dict
+    label: "Limits"
+    description: "Ограничения размера конвертов и резюме handoff."
+    default:
+      max_payload_bytes: 65536
+      max_summary_chars: 4000
+  transcription:
+    type: dict
+    label: "Transcription"
+    description: "Распознавание голосовых в исходном профиле. provider=none требует ручной настройки; ключ берётся из переменной окружения с именем api_key_env."
+    default:
+      provider: "none"
+      model: "whisper-1"
+      api_key_env: ""
+      language: ""
+  approvals:
+    type: dict
+    label: "Approvals"
+    description: "Зарезервировано на 0.2.0. В 0.1.0 approval-конверты всегда отклоняются."
+    default:
+      enabled: false
+  federation:
+    type: dict
+    label: "Federation"
+    description: "Зарезервировано на 0.3.0. В 0.1.0 принимается только instance_id=local."
+    default:
+      enabled: false

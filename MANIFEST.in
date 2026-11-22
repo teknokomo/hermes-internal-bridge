@@ -1,0 +1,15 @@
+include plugin.yaml
+include __init__.py
+include pyproject.toml
+include MANIFEST.sha256
+recursive-include hermes_internal_bridge *.py
+recursive-include config *.example.json
+include README.md README-RU.md SECURITY.md CHANGELOG.md LICENSE.md LICENSE-RU.md
+include deploy/*.md
+recursive-include skills *.md
+prune tests
+prune docs
+prune .agents
+prune .claude
+prune .backup
+global-exclude __pycache__ *.py[cod] *.sqlite3 *.sqlite3-* .env .env.* *.log *.pid

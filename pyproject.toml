@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hermes-internal-bridge"
+version = "0.1.0"
+description = "Hermes Internal Bridge (HIB): chat relay, trigger gate, route policy, local bus, context handoff and audit ledger between Hermes profiles"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "LicenseRef-Omsk-Open-License-Basic-Attribution"
+license-files = ["LICENSE-RU.md"]
+dependencies = []
+
+[project.scripts]
+hib = "hermes_internal_bridge.cli:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["hermes_internal_bridge", "hermes_internal_bridge.*"]
+
+[tool.setuptools.data-files]
+"share/hermes/plugins/hermes-internal-bridge" = ["plugin.yaml", "__init__.py", "MANIFEST.sha256"]
+"share/hermes/plugins/hermes-internal-bridge/hermes_internal_bridge" = ["hermes_internal_bridge/*.py"]
+"share/hermes/plugins/hermes-internal-bridge/config" = ["config/*.example.json"]
+"share/hermes/plugins/hermes-internal-bridge/deploy" = ["deploy/*.md"]
+"share/hermes/plugins/hermes-internal-bridge/skills/hermes-internal-bridge" = ["skills/hermes-internal-bridge/SKILL.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+exclude = [".agents"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["N999"]
+"tests/__init__.py" = ["N999"]
