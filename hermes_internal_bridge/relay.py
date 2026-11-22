@@ -201,6 +201,7 @@ class RelayIntake:
         except Exception as exc:
             self._ledger("relay_transcript_failed", envelope.relay_id, route_id=route.route_id,
                          details={"error": str(exc)})
+            self._ack(dict(envelope.source), "Ошибка: не удалось распознать голосовое")
             return
         try:
             self._enqueue(envelope, route)

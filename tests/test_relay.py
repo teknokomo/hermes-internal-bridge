@@ -150,6 +150,21 @@ def test_voice_transcription_failure_sends_no_text(tmp_path):
     assert any("Ошибка" in text for _, text in acks)
 
 
+def test_unexpected_transcription_error_notifies_source(tmp_path):
+    """An unexpected provider failure must answer the source instead of leaving it silent."""
+    provider = FakeProvider(error=RuntimeError("provider exploded"))
+    audio_path = tmp_path / "voice.ogg"
+    audio_path.write_bytes(b"fake")
+    components, acks, _ = make_intake(tmp_path, provider=provider)
+    event = FakeEvent("", message_type="voice", media_urls=[str(audio_path)], media_types=["voice"])
+    result = components.intake.handle_event(event)
+    assert result is not None and result["action"] == "skip"
+    ok = drain_until(lambda: any("Ошибка" in text for _, text in acks))
+    assert ok, "the source was never told that transcription failed"
+    assert components.bus.counts()["queued"] == 0
+    assert components.ledger.count_events("relay_transcript_failed") == 1
+
+
 def test_ack_disabled_when_relay_handoff_ack_false(tmp_path):
     components, acks, _ = make_intake(tmp_path, **{"relay": {"handoff_ack": False}})
     components.intake.ack_scheduler = None  # operator turned acks off
