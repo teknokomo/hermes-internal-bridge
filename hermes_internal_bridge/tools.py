@@ -87,6 +87,18 @@ def _tool_relay_send(components, args: dict[str, Any]) -> dict[str, Any]:
     if components.directory is not None and not components.directory.known(target_profile):
         # FR-024: no delivery and no default-profile fallback.
         raise BridgeError("relay_route_missing", "Целевой профиль отсутствует в реестре.")
+    target_chat = str(args.get("chat_id", "") or "")
+    target_thread = str(args.get("thread_id", "") or "")
+    # FR-025: a tool call may not invent a destination; exactly an enabled route authorizes it.
+    allowed = any(
+        route.enabled
+        and str(route.target.get("profile", "")) == target_profile
+        and str(route.target.get("chat_id", "") or "") == target_chat
+        and str(route.target.get("thread_id", "") or "") == target_thread
+        for route in components.routes.list()
+    )
+    if not allowed:
+        raise BridgeError("relay_route_missing", "Цель не разрешена ни одним включённым маршрутом.")
     correlation_id = str(args.get("correlation_id", "") or "").strip() or new_correlation_id()
     envelope = new_chat_message_envelope(
         source={

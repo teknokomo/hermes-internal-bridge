@@ -148,12 +148,11 @@ class Database:
             for version, sql in MIGRATIONS:
                 if version in applied:
                     continue
-                # executescript runs in autocommit; the marker row below is the
-                # applied-guard and is written immediately after the script.
-                self._conn.executescript(sql)
-                self._conn.execute(
-                    "INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)",
-                    (version, time.time()),
+                self._conn.executescript(
+                    "BEGIN IMMEDIATE;\n"
+                    f"{sql}\n"
+                    f"INSERT INTO schema_migrations (version, applied_at) VALUES ('{version}', {time.time()});\n"
+                    "COMMIT;"
                 )
 
     def close(self) -> None:

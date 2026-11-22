@@ -50,7 +50,7 @@ def validate_artifact_ref(ref: Any) -> dict[str, Any]:
     if document_id is not None and not isinstance(document_id, str):
         raise BridgeError("relay_payload_invalid", "document_id должен быть строкой.")
     # FR-041: secrets, tokens and .env content can never be artifacts.
-    serialized = " ".join(str(ref.get(key, "")) for key in ("uri", "kind", "artifact_id"))
+    serialized = " ".join(str(ref.get(key, "")) for key in ("uri", "kind", "artifact_id", "document_id"))
     if find_secrets(serialized) or _looks_like_env_reference(ref):
         raise BridgeError("relay_acl_denied")
     return ref

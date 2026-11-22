@@ -21,7 +21,7 @@ import threading
 from typing import Any, Callable
 
 from .bus import MessageBus
-from .envelope import Envelope, new_chat_message_envelope, relay_marker
+from .envelope import Envelope, derived_relay_id, new_chat_message_envelope, relay_marker
 from .errors import BridgeError
 from .handoff import handoff_result_text, handoff_task_text
 
@@ -136,7 +136,7 @@ class ProfileConsumer:
             origin = {
                 "instance_id": "local",
                 "profile": self.profile,
-                "platform": destination.get("platform", destination.get("platform_id", "")),
+                "platform": str(destination.get("platform") or envelope.source.get("platform") or ""),
                 "chat_id": destination.get("chat_id", ""),
                 "thread_id": destination.get("thread_id", "") or "",
                 "user_id": destination.get("user_id", "") or "",
@@ -206,16 +206,18 @@ class ProfileConsumer:
             original = Envelope.from_json(row["envelope_json"])
         except BridgeError:
             original = None
+        # Child envelopes are enqueued before the parent is completed: if the process
+        # dies in between, the retry re-enqueues the same deterministic ids (dedup)
+        # instead of losing the reply.
+        if original is not None:
+            mode = self._route_mode(row.get("route_id", ""))
+            if mode == "mirror":
+                self._enqueue_mirror(original, assistant_response)
+            elif original.kind == "handoff.request":
+                self._enqueue_handoff_result(original, assistant_response)
         self.bus.complete(relay_id, target_profile=self.profile, completed_by=self.profile)
         self._ledger("relay_done", relay_id, route_id=row.get("route_id", ""),
                      details={"completed_by": self.profile})
-        if original is None:
-            return
-        mode = self._route_mode(row.get("route_id", ""))
-        if mode == "mirror":
-            self._enqueue_mirror(original, assistant_response)
-        elif original.kind == "handoff.request":
-            self._enqueue_handoff_result(original, assistant_response)
 
     # --------------------------------------------------------------- helpers
 
@@ -224,11 +226,12 @@ class ProfileConsumer:
         if not isinstance(assistant_response, str) or not assistant_response.strip():
             return
         mirror = new_chat_message_envelope(
+            relay_id=derived_relay_id(original.relay_id, "mirror"),
             correlation_id=original.correlation_id,
             source={
                 "instance_id": "local",
                 "profile": self.profile,
-                "platform": original.destination.get("platform", ""),
+                "platform": original.source.get("platform", ""),
                 "user_id": original.destination.get("user_id", ""),
                 "chat_id": original.destination.get("chat_id", ""),
                 "thread_id": original.destination.get("thread_id", ""),
@@ -237,6 +240,7 @@ class ProfileConsumer:
             destination={
                 "instance_id": "local",
                 "profile": original.source_profile,
+                "platform": str(original.source.get("platform", "") or ""),
                 "chat_id": str(original.source.get("chat_id", "") or ""),
                 "thread_id": str(original.source.get("thread_id", "") or ""),
             },
@@ -254,7 +258,7 @@ class ProfileConsumer:
     def _enqueue_handoff_result(self, original: Envelope, assistant_response: str) -> None:
         summary = (assistant_response or "").strip()[: self.max_summary_chars]
         result = Envelope(
-            relay_id=original.relay_id + "-result",
+            relay_id=derived_relay_id(original.relay_id, "result"),
             correlation_id=original.correlation_id,
             kind="handoff.result",
             source={
@@ -269,6 +273,7 @@ class ProfileConsumer:
             destination={
                 "instance_id": "local",
                 "profile": original.source_profile,
+                "platform": str(original.source.get("platform", "") or ""),
                 "chat_id": str(original.source.get("chat_id", "") or ""),
                 "thread_id": str(original.source.get("thread_id", "") or ""),
             },
@@ -323,7 +328,7 @@ class ProfileConsumer:
     def _enqueue_notice(self, original: Envelope, code: str) -> None:
         """Tell the source chat once that delivery failed (FR-006: exactly one error)."""
         notice = Envelope(
-            relay_id=f"{original.relay_id}-notice",
+            relay_id=derived_relay_id(original.relay_id, "notice"),
             correlation_id=original.correlation_id,
             kind="health",
             source={
@@ -338,6 +343,7 @@ class ProfileConsumer:
             destination={
                 "instance_id": "local",
                 "profile": original.source_profile,
+                "platform": str(original.source.get("platform", "") or ""),
                 "chat_id": str(original.source.get("chat_id", "") or ""),
                 "thread_id": str(original.source.get("thread_id", "") or ""),
             },

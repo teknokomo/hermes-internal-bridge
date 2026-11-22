@@ -16,8 +16,8 @@ _SECRET_PATTERN_TEXTS: tuple[str, ...] = (
     r"AKIA[0-9A-Z]{16}",                                        # AWS access key ids
     r"\d{8,12}:AA[A-Za-z0-9_-]{30,}",                           # Telegram bot tokens
     r"eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}",  # JWTs
+    r"(?i)\bbearer\s+[A-Za-z0-9._~+/-]{10,}=*",                 # Authorization headers (before the generic rule)
     r"(?i)\b(api[_-]?key|token|secret|password|passwd|authorization|auth)\b\s*[=:]\s*\S+",
-    r"(?i)\bbearer\s+[A-Za-z0-9._~+/-]{10,}=*",                 # Authorization headers
 )
 
 REDACTED = "[REDACTED]"

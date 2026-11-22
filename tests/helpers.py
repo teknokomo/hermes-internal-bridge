@@ -97,7 +97,8 @@ def make_components(tmp_path, *, profile="default", relay_enabled=True, roster=N
     def ack_scheduler(source, text):
         acks.append((dict(source), text))
 
-    components = build_components(profile=profile, config=config, db=db, ack_scheduler=ack_scheduler)
+    components = build_components(profile=profile, config=config, db=db, ack_scheduler=ack_scheduler,
+                                  thread_ack_scheduler=ack_scheduler)
     components.consumer.ack_scheduler = ack_scheduler
     return components, acks
 

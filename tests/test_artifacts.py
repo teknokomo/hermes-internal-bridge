@@ -29,6 +29,13 @@ def test_document_id_instead_of_uri():
     validate_artifact_ref(good_ref(uri=None, document_id="doc-42"))
 
 
+def test_document_id_with_secret_rejected():
+    """FR-041: document_id travels inside the envelope, so it is scanned like uri."""
+    with pytest.raises(BridgeError) as excinfo:
+        validate_artifact_ref(good_ref(uri=None, document_id="token=private-value"))
+    assert excinfo.value.code == "relay_acl_denied"
+
+
 def test_base64_payload_rejected():
     """FR-039: bytes never travel in the envelope."""
     for key in ("content_b64", "base64", "data", "content"):

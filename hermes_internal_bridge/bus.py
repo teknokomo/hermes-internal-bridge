@@ -75,22 +75,21 @@ class MessageBus:
                         1 if envelope.relay_mirror else 0,
                     ),
                 )
+                if envelope.kind == "handoff.request":
+                    self._insert_handoff(conn, envelope)
         except Exception as exc:
             if "UNIQUE" in str(exc):
                 # Duplicate relay_id: the first message stands, callers treat this as confirmation.
                 raise BridgeError("relay_duplicate") from exc
             raise
-        if envelope.kind == "handoff.request":
-            self._insert_handoff(envelope, now)
         return envelope.relay_id
 
-    def _insert_handoff(self, envelope: Envelope, now: float) -> None:
+    def _insert_handoff(self, conn, envelope: Envelope) -> None:
         payload = envelope.payload
         summary = payload.get("summary")
         if not isinstance(summary, str) or not summary.strip():
             raise BridgeError("relay_payload_invalid", "handoff.request требует непустой summary.")
-        with self._db.transaction() as conn:
-            conn.execute(
+        conn.execute(
                 """
                 INSERT INTO hib_handoffs
                     (relay_id, summary, constraints_json, expected_result, deadline_at, priority,
@@ -148,6 +147,14 @@ class MessageBus:
         ).fetchall()
         for row in expired:
             attempts = int(row["attempts"]) + 1
+            if attempts >= self.max_attempts:
+                # A worker that keeps dying must not loop forever: the lease expiry counts.
+                conn.execute(
+                    "UPDATE hib_messages SET status='dead', attempts=?, lease_until=NULL,"
+                    " last_error='bus_lease_expired', next_attempt_at=NULL, updated_at=? WHERE relay_id=?",
+                    (attempts, now, row["relay_id"]),
+                )
+                continue
             conn.execute(
                 "UPDATE hib_messages SET status='queued', lease_until=NULL, attempts=?,"
                 " last_error='bus_lease_expired', next_attempt_at=?, updated_at=? WHERE relay_id=?",
@@ -278,16 +285,20 @@ class MessageBus:
                 status = "queued"
                 lease_until = None
                 next_attempt_at = now + self._backoff_delay(attempts)
-            conn.execute(
+            cursor = conn.execute(
                 """
                 UPDATE hib_messages
                 SET status=?, attempts=?, lease_until=?, next_attempt_at=?, last_error=?,
                     source_notified=?, updated_at=?
-                WHERE relay_id=? AND target_profile=?
+                WHERE relay_id=? AND target_profile=? AND status='processing'
                 """,
                 (status, attempts, lease_until, next_attempt_at, error, notified, now,
                  relay_id, target_profile),
             )
+            if cursor.rowcount == 0:
+                # A late failure from a worker whose lease already expired must not
+                # overwrite the state of the worker that owns the message now.
+                return self.get(relay_id, target_profile=target_profile) or {}
         updated = self.get(relay_id, target_profile=target_profile)
         if updated is not None and updated["status"] == "dead":
             raise BridgeError("bus_dead_letter")

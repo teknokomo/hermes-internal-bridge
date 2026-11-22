@@ -101,12 +101,21 @@ class GatewayMessageSender:
                 return adapter
         return None
 
+    @staticmethod
+    def _thread_metadata(address: dict[str, Any]) -> dict[str, str] | None:
+        """Hermes adapters read the topic from ``metadata['thread_id']``; without it a
+        topic-bound message lands in the General topic."""
+        thread_id = str(address.get("thread_id", "") or "")
+        return {"thread_id": thread_id} if thread_id else None
+
     def send_from_hook(self, source: dict[str, Any], text: str) -> bool:
         """Fire-and-forget send while running inside the gateway loop (acks)."""
         adapter = self._adapter_for(str(source.get("platform", "")))
         if adapter is None:
             return False
-        coroutine = adapter.send(str(source.get("chat_id", "")), text)
+        coroutine = adapter.send(
+            str(source.get("chat_id", "")), text, metadata=self._thread_metadata(source)
+        )
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
@@ -125,7 +134,11 @@ class GatewayMessageSender:
             return False
         try:
             future = asyncio.run_coroutine_threadsafe(
-                adapter.send(str(destination.get("chat_id", "")), text), self._loop
+                adapter.send(
+                    str(destination.get("chat_id", "")), text,
+                    metadata=self._thread_metadata(destination),
+                ),
+                self._loop,
             )
             return bool(future.result(timeout=30))
         except Exception:
@@ -153,7 +166,7 @@ class Components:
 
 
 def build_components(*, profile: str, config: dict[str, dict[str, Any]], db: Database,
-                     ack_scheduler=None) -> Components:
+                     ack_scheduler=None, thread_ack_scheduler=None) -> Components:
     ledger = Ledger(db)
     routes = RouteRegistry(db)
     bus = MessageBus(
@@ -176,6 +189,8 @@ def build_components(*, profile: str, config: dict[str, dict[str, Any]], db: Dat
     sender = GatewayMessageSender()
     if ack_scheduler is None:
         ack_scheduler = sender.send_from_hook
+    if thread_ack_scheduler is None:
+        thread_ack_scheduler = sender.send_from_thread
     home = paths.hermes_home()
     audio_area = Path(home) / "plugin-data" / PLUGIN_NAME / "audio"
     provider = provider_from_config(config["transcription"])
@@ -186,6 +201,7 @@ def build_components(*, profile: str, config: dict[str, dict[str, Any]], db: Dat
         ledger=ledger,
         gate=gate,
         ack_scheduler=ack_scheduler,
+        thread_ack_scheduler=thread_ack_scheduler,
         relay_enabled=bool(config["relay"]["enabled"]),
         max_hops=int(config["relay"]["max_hops"]),
         max_payload_bytes=int(config["limits"]["max_payload_bytes"]),

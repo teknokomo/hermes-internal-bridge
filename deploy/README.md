@@ -27,6 +27,15 @@ hermes plugins validate ./hermes-internal-bridge --json   # → "ok": true
 hermes plugins doctor ./hermes-internal-bridge --ci       # → exit 0, 7 tool(s), 2 hook(s)
 ```
 
+Скрипт `hib`, которым оперирует дальше этот документ, ставится отдельно: он объявлен в `[project.scripts]` и в состав файлов плагина не входит. Поставить его нужно в то окружение, из которого оператор вызывает CLI:
+
+```bash
+uv tool install --from "$(pwd)" hermes-internal-bridge    # или: pipx install --force "$(pwd)"
+hib --help
+```
+
+Без этого шага `hib status`, `hib routes` и остальные команды из разделов ниже недоступны, хотя плагин работает.
+
 ## 2. Подготовить целевые профили
 
 HIB работает по схеме B: экземпляр плагина в каждом целевом профиле + общая шина на корневом Hermes home.
@@ -46,6 +55,20 @@ plugins:
 
 3. В каталог HIB (`directory.profiles` в настройках плагина) внести все профили-участники — только они считаются валидными целями (`relay_route_missing` для остальных, без отката в default).
 
+4. Целевой чат или тема должны быть **маршрутизированы gateway в тот же профиль**, где работает экземпляр HIB. Плагин не подменяет маршрутизацию ядра: доставка — это ход, инъецированный в сессию профиля, и он стартует только там, куда gateway направил входящее сообщение.
+
+```yaml
+# config.yaml профиля-получателя (или общий, если включён multiplex)
+gateway:
+  profile_routes:
+    - platform: telegram
+      chat_id: "<id целевой группы>"
+      thread_id: "<id темы>"
+      profile: "<имя профиля с HIB>"
+```
+
+Если маршрута ядра нет, инъекция в тему не создаст ход: сообщение останется в очереди со статусом `relay_target_unavailable`, а в исходный чат уйдёт одно уведомление. Это ожидаемое поведение, а не ошибка плагина.
+
 ## 3. Настроить общую шину
 
 База по умолчанию: `${HERMES_ROOT}/plugin-data/hermes-internal-bridge/hib.sqlite3` (Linux: `~/.hermes/plugin-data/...`; Windows: `%LOCALAPPDATA%\hermes\plugin-data\...`). Директория создаётся приватной: 0700 на Linux, ACL текущего пользователя на Windows. В базе только конверты и метаданные доставки.
@@ -54,6 +77,13 @@ plugins:
 
 ```bash
 ls -la ~/.hermes/plugin-data/hermes-internal-bridge/   # 0700
+hib status
+```
+
+CLI не читает настройки плагина из профиля: если шина лежит не по умолчанию, путь задаётся переменной `HIB_STATE_PATH` (или секцией `ledger.state_path` в настройках плагина — она действует для самого плагина):
+
+```bash
+export HIB_STATE_PATH=/путь/к/hib.sqlite3
 hib status
 ```
 

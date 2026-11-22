@@ -33,6 +33,12 @@ def test_authorization_header():
     assert find_secrets("Authorization: Bearer abc.def.ghi-jkl-123456") != []
 
 
+def test_redact_authorization_header_keeps_no_token():
+    """Order matters: the generic key/value rule must not consume the prefix and leave the token."""
+    value = "Authorization: Bearer abcdefghijklmnopqrst"
+    assert "abcdefghijklmnopqrst" not in redact(value)
+
+
 def test_clean_text_has_no_match():
     assert find_secrets("Обычное сообщение про погоду и планы на неделю") == []
 

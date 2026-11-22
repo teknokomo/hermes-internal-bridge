@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import uuid
@@ -33,6 +34,7 @@ PRIORITIES: frozenset[str] = frozenset({"low", "normal", "high"})
 # Human-readable relay header embedded in generated messages so anything that
 # re-enters the gateway is detectable by the trigger gate (spec §6.3).
 RELAY_MARKER_RE = re.compile(r"\[hib:r=([0-9a-fA-F-]{16,64});h=(\d+)\]")
+RELAY_ID_RE = re.compile(r"^[0-9a-fA-F-]{16,64}$")
 
 
 def relay_marker(relay_id: str, hop: int) -> str:
@@ -52,6 +54,12 @@ def strip_relay_marker(text: str) -> tuple[str, str | None, int | None]:
 
 def new_relay_id() -> str:
     return str(uuid.uuid4())
+
+
+def derived_relay_id(relay_id: str, purpose: str) -> str:
+    """Child envelope id. It keeps the marker grammar so the gate still classifies it."""
+    suffix = hashlib.sha256(f"{relay_id}:{purpose}".encode("utf-8")).hexdigest()[:8]
+    return f"{relay_id}-{suffix}"
 
 
 def new_correlation_id() -> str:
@@ -170,6 +178,10 @@ class Envelope:
             raise BridgeError("approval_not_supported")
         if self.kind not in KINDS:
             raise BridgeError("relay_payload_invalid", "Неизвестный тип конверта.")
+        if not RELAY_ID_RE.match(str(self.relay_id or "")):
+            # The trigger gate recognises a relay only through the marker grammar, so an
+            # identifier outside it would produce a message the gate cannot classify.
+            raise BridgeError("relay_payload_invalid", "relay_id должен быть hex-uuid длиной 16–64 символа.")
         if not self.source:
             raise BridgeError("relay_payload_invalid", "Пустой источник.")
         if not self.destination:

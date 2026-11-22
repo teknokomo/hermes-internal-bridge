@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -28,7 +29,10 @@ def _open_components(config_overrides: dict[str, Any] | None = None):
 
     config = {name: dict(section) for name, section in CONFIG_DEFAULTS.items()}
     config.update(config_overrides or {})
-    state_value = str(config["ledger"].get("state_path") or "").strip()
+    # The CLI has no plugin context, so an explicit environment path wins over defaults.
+    state_value = os.environ.get("HIB_STATE_PATH", "").strip() or str(
+        config["ledger"].get("state_path") or ""
+    ).strip()
     state_path = paths.expand_path(state_value) if state_value else paths.default_bus_state_path()
     if not Path(state_path).exists():
         raise BridgeError("relay_payload_invalid",

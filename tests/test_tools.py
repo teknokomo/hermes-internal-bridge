@@ -55,6 +55,18 @@ def test_hib_relay_send_empty_text_rejected(tools):
 
 def test_hib_relay_send_enqueues_with_correlation(tools):
     components, handlers = tools
+    from hermes_internal_bridge.routes import Route
+
+    components.routes.upsert(
+        Route(
+            route_id="tool-route",
+            source={"platform": "telegram", "user_id": "", "chat_id": "", "thread_id": ""},
+            target={"profile": "other-profile", "chat_id": "topic-2", "thread_id": ""},
+            mode="handoff",
+            priority=0,
+            enabled=True,
+        )
+    )
     result = handlers["hib_relay_send"]({"target_profile": "other-profile", "text": "задача",
                                          "chat_id": "topic-2"})
     assert result["ok"] is True
@@ -62,6 +74,15 @@ def test_hib_relay_send_enqueues_with_correlation(tools):
     assert row is not None
     assert row["correlation_id"] == result["correlation_id"]
     assert components.ledger.count_events("relay_enqueued") == 1
+
+
+def test_hib_relay_send_requires_enabled_route(tools):
+    """A tool call may not invent a destination: no enabled route, no delivery."""
+    _, handlers = tools
+    result = handlers["hib_relay_send"]({"target_profile": "other-profile", "text": "задача",
+                                         "chat_id": "topic-2"})
+    assert result["ok"] is False
+    assert result["error"] == "relay_route_missing"
 
 
 def test_hib_bus_send_handoff_validates_summary(tools):

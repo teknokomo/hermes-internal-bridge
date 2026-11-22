@@ -22,6 +22,22 @@ def make_intake(tmp_path, *, provider=None, roster=None, **overrides):
     return components, acks, provider
 
 
+def test_route_target_inherits_source_platform():
+    """A route names a profile and a chat; Hermes rejects an injection with an empty platform."""
+    from hermes_internal_bridge.relay import route_target_of
+
+    target = route_target_of(make_route("r1"), {"platform": "telegram"})
+    assert target["platform"] == "telegram"
+
+
+def test_voice_mime_type_is_accepted():
+    """Telegram delivers voice notes as ``audio/ogg``, not as ``voice``."""
+    from hermes_internal_bridge.relay import first_audio_path
+
+    event = FakeEvent("", message_type="voice", media_urls=["/tmp/voice.ogg"], media_types=["audio/ogg"])
+    assert str(first_audio_path(event)) == "/tmp/voice.ogg"
+
+
 def test_routed_dm_creates_envelope_and_single_ack(tmp_path):
     """§8.1: personal chat → profile topic; exactly one message and one ack."""
     components, acks, _ = make_intake(tmp_path)
@@ -144,7 +160,10 @@ def test_voice_transcription_failure_sends_no_text(tmp_path):
     components, acks, _ = make_intake(tmp_path, provider=provider)
     event = FakeEvent("", message_type="voice", media_urls=[str(audio_path)], media_types=["voice"])
     assert components.intake.handle_event(event)["action"] == "skip"
-    ok = drain_until(lambda: components.ledger.count_events("relay_transcript_failed") == 1)
+    ok = drain_until(
+        lambda: components.ledger.count_events("relay_transcript_failed") == 1
+        and any("Ошибка" in text for _, text in acks)
+    )
     assert ok
     assert components.bus.counts()["queued"] == 0
     assert any("Ошибка" in text for _, text in acks)

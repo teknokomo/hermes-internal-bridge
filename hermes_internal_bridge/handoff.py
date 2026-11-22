@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import time
 from typing import Any
 
@@ -49,15 +50,22 @@ def validate_handoff_result(payload: dict[str, Any], *, max_summary_chars: int) 
     return payload
 
 
+def _finite(value: float) -> float:
+    """A deadline must be a real moment: ``inf``/``nan`` would disable every timeout."""
+    if not math.isfinite(value):
+        raise BridgeError("relay_payload_invalid", "deadline_at должен быть конечным моментом времени.")
+    return value
+
+
 def _deadline_to_epoch(deadline: Any) -> float:
     if isinstance(deadline, bool):
         raise BridgeError("relay_payload_invalid", "deadline_at должен быть epoch-числом или ISO-строкой.")
     if isinstance(deadline, (int, float)):
-        return float(deadline)
+        return _finite(float(deadline))
     if isinstance(deadline, str):
         text = deadline.strip()
         try:
-            return float(text)
+            return _finite(float(text))
         except ValueError:
             pass
         for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
@@ -74,7 +82,7 @@ def _deadline_to_epoch(deadline: Any) -> float:
             parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
             if parsed.tzinfo is None:
                 parsed = parsed.replace(tzinfo=timezone.utc)
-            return parsed.timestamp()
+            return _finite(parsed.timestamp())
         except ValueError as exc:
             raise BridgeError("relay_payload_invalid", "deadline_at не разобран.") from exc
     raise BridgeError("relay_payload_invalid", "deadline_at должен быть epoch-числом или ISO-строкой.")

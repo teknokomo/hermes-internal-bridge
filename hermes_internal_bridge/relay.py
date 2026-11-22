@@ -54,23 +54,37 @@ def message_type_of(event: Any) -> str:
     return str(value or "text")
 
 
+def is_audio_media_type(media_type: str) -> bool:
+    """Telegram reports ``audio/ogg`` for voice notes; other surfaces use ``voice``/``audio``."""
+    value = (media_type or "").strip().lower()
+    if not value:
+        return False
+    return value in VOICE_TYPES or value.startswith("audio/")
+
+
 def first_audio_path(event: Any) -> Path | None:
     """The first voice/audio attachment path (gateway keeps local paths in ``media_urls``)."""
     urls = list(getattr(event, "media_urls", None) or [])
     types = list(getattr(event, "media_types", None) or [])
     for index, url in enumerate(urls):
         media_type = str(types[index]) if index < len(types) else ""
-        if media_type.lower() in VOICE_TYPES and url:
+        if is_audio_media_type(media_type) and url:
             return Path(url)
     if urls and not types and urls[0]:
         return Path(urls[0])
     return None
 
 
-def route_target_of(route) -> dict[str, Any]:
+def route_target_of(route, source: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Destination of a route. The platform falls back to the source: a route names a
+    profile and a chat, and Hermes refuses an injection whose origin has no platform."""
+    platform = str(route.target.get("platform", "") or "")
+    if not platform and source is not None:
+        platform = str(source.get("platform", "") or "")
     return {
         "instance_id": "local",
         "profile": str(route.target.get("profile", "")),
+        "platform": platform,
         "chat_id": str(route.target.get("chat_id", "") or ""),
         "thread_id": str(route.target.get("thread_id", "") or ""),
     }
@@ -88,6 +102,7 @@ class RelayIntake:
         ledger,
         gate,
         ack_scheduler: AckScheduler | None = None,
+        thread_ack_scheduler: AckScheduler | None = None,
         relay_enabled: bool = False,
         max_hops: int = 1,
         max_payload_bytes: int = 65536,
@@ -101,6 +116,7 @@ class RelayIntake:
         self.ledger = ledger
         self.gate = gate
         self.ack_scheduler = ack_scheduler
+        self.thread_ack_scheduler = thread_ack_scheduler
         self.relay_enabled = relay_enabled
         self.max_hops = max_hops
         self.max_payload_bytes = max_payload_bytes
@@ -153,7 +169,7 @@ class RelayIntake:
         text = str(getattr(event, "text", "") or "").strip()
         envelope = new_chat_message_envelope(
             source=source,
-            destination=route_target_of(route),
+            destination=route_target_of(route, source),
             text=text,
             hop=1,
         )
@@ -175,7 +191,7 @@ class RelayIntake:
             relay_id=relay_id,
             correlation_id=correlation_id,
             source=source,
-            destination=route_target_of(route),
+            destination=route_target_of(route, source),
             text="",
             is_voice_transcript=True,
             attachments=[ref],
@@ -196,12 +212,12 @@ class RelayIntake:
             envelope.validate(max_hops=self.max_hops, max_payload_bytes=self.max_payload_bytes)
         except BridgeError as exc:
             self._ledger(exc.code, envelope.relay_id, route_id=route.route_id, details={"error": exc.message})
-            self._ack(dict(envelope.source), f"Ошибка: {exc.message}")
+            self._ack_from_worker(dict(envelope.source), f"Ошибка: {exc.message}")
             return
         except Exception as exc:
             self._ledger("relay_transcript_failed", envelope.relay_id, route_id=route.route_id,
                          details={"error": str(exc)})
-            self._ack(dict(envelope.source), "Ошибка: не удалось распознать голосовое")
+            self._ack_from_worker(dict(envelope.source), "Ошибка: не удалось распознать голосовое")
             return
         try:
             self._enqueue(envelope, route)
@@ -241,6 +257,17 @@ class RelayIntake:
             self.ack_scheduler(source, message)
         except Exception:
             logger.debug("ack scheduling failed", exc_info=True)
+
+    def _ack_from_worker(self, source: dict[str, Any], text: str | None) -> None:
+        """Worker threads have no event loop, so the hook-path scheduler cannot deliver there."""
+        scheduler = self.thread_ack_scheduler or self.ack_scheduler
+        if scheduler is None:
+            return
+        message = text if text is not None else self.ack_text
+        try:
+            scheduler(source, message)
+        except Exception:
+            logger.debug("worker ack failed", exc_info=True)
 
     def _ledger(self, event: str, relay_id: str, *, route_id: str = "", details: dict | None = None) -> None:
         if self.ledger is None:
