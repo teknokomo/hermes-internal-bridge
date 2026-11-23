@@ -79,11 +79,11 @@ def test_profile_a_to_profile_b_correlated_reply(tmp_path):
     handlers = {name: handler for name, _, _, handler in __import__(
         "hermes_internal_bridge.tools", fromlist=["build_tool_handlers"]
     ).build_tool_handlers(components)}
-    sent = handlers["hib_bus_send"]({
+    sent = json.loads(handlers["hib_bus_send"]({
         "target_profile": "profile-b",
         "kind": "handoff.request",
         "payload": {"summary": "оцени код", "constraints": ["без правок core"]},
-    })
+    }))
     assert sent["ok"] is True
 
     consumer_b = ProfileConsumer(
