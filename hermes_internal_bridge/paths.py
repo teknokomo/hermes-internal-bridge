@@ -78,8 +78,23 @@ def resolve_hermes_root(env: dict[str, str] | None = None) -> Path:
         return hermes_root_of(platform_default_home(env))
 
 
-def profile_name(home: Path | None = None, env: dict[str, str] | None = None) -> str:
-    """The profile this process serves: ``default`` for the root home, else the directory name."""
+def profile_name(home: Path | None = None, env: dict[str, str] | None = None,
+                 module_path: Path | None = None) -> str:
+    """The profile this plugin copy serves.
+
+    A multiplexed gateway runs every profile's plugin copy inside one process, with the
+    same ``HERMES_HOME``, so the environment cannot tell them apart. The plugin file's own
+    location can: ``<root>/profiles/<name>/plugins/...`` versus ``<root>/plugins/...``.
+    """
+    if module_path is None:
+        module_path = Path(__file__).resolve()
+    parts = Path(module_path).parts
+    if PROFILES_DIR_NAME in parts:
+        index = parts.index(PROFILES_DIR_NAME)
+        if index + 1 < len(parts):
+            candidate = parts[index + 1]
+            if candidate and candidate != PROFILES_DIR_NAME:
+                return candidate
     home = home or hermes_home(env)
     if home.parent.name == PROFILES_DIR_NAME:
         return home.name
