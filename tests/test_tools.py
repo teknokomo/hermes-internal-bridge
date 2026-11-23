@@ -1,5 +1,7 @@
 """Plugin tools (FR-047..FR-049): scoping, limits, error codes instead of tracebacks."""
 
+import json
+
 import pytest
 
 from helpers import enqueue_message, make_components, make_route
@@ -16,8 +18,23 @@ def tools(tmp_path):
                                         {"profile": "other-profile", "description": "",
                                          "capabilities": []},
                                     ])
-    handlers = {name: handler for name, _, _, handler in build_tool_handlers(components)}
+
+    def parse(handler):
+        return lambda args=None: json.loads(handler(args or {}))
+
+    handlers = {name: parse(handler) for name, _, _, handler in build_tool_handlers(components)}
     return components, handlers
+
+
+def test_tool_handlers_return_json_strings(tmp_path):
+    """Hermes rejects non-string tool results (tool_result_contract), so every handler
+    must serialize its envelope itself."""
+    components, _ = make_components(tmp_path, profile="target-profile",
+                                    roster=[{"profile": "target-profile"}])
+    for name, _schema, _description, handler in build_tool_handlers(components):
+        result = handler({})
+        assert isinstance(result, str), f"{name} returned {type(result).__name__}"
+        assert isinstance(json.loads(result), dict)
 
 
 def test_hib_status_shape(tools):

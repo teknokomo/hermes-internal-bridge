@@ -7,6 +7,7 @@ scoped to the profile hosting the tool.
 
 from __future__ import annotations
 
+import json
 from typing import Any, Callable
 
 from .envelope import Envelope, new_chat_message_envelope, new_correlation_id, new_relay_id
@@ -23,13 +24,20 @@ def build_tool_handlers(components) -> list[tuple[str, dict, str, Callable]]:
 
 
 def _scoped(handler: Callable, components) -> Callable:
-    def call(args: dict[str, Any]) -> dict[str, Any]:
+    """Bind *components* and return the tool contract Hermes accepts: a JSON string.
+
+    The registry rejects any non-string result (``tool_result_contract``), so the
+    handler envelope is serialized here rather than at every call site.
+    """
+
+    def call(args: dict[str, Any]) -> str:
         try:
-            return handler(components, args or {})
+            result = handler(components, args or {})
         except BridgeError as exc:
-            return {"ok": False, "error": exc.code, "message": exc.message}
+            result = {"ok": False, "error": exc.code, "message": exc.message}
         except Exception as exc:  # never leak tracebacks to the model (FR-049)
-            return {"ok": False, "error": "relay_payload_invalid", "message": str(exc)[:200]}
+            result = {"ok": False, "error": "relay_payload_invalid", "message": str(exc)[:200]}
+        return json.dumps(result, ensure_ascii=False)
 
     return call
 
