@@ -78,6 +78,14 @@ def resolve_hermes_root(env: dict[str, str] | None = None) -> Path:
         return hermes_root_of(platform_default_home(env))
 
 
+def profile_name_of_home(home: Path | str) -> str:
+    """Profile id that owns *home*: ``profiles/<name>`` → name, the root home → ``default``."""
+    home = Path(home)
+    if home.parent.name == PROFILES_DIR_NAME:
+        return home.name
+    return "default"
+
+
 def profile_name(home: Path | None = None, env: dict[str, str] | None = None,
                  module_path: Path | None = None) -> str:
     """The profile this plugin copy serves.

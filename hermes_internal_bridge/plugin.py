@@ -224,9 +224,27 @@ def build_components(*, profile: str, config: dict[str, dict[str, Any]], db: Dat
                       sender=sender, config=config)
 
 
+def _profile_from_context(ctx: Any) -> str:
+    """The profile this registration belongs to.
+
+    A multiplexed gateway serves several profiles from one process and Python imports
+    this module once, so neither ``HERMES_HOME`` nor ``__file__`` can tell the copies
+    apart. Each profile gets its own ``PluginManager`` bound to its home — that is the
+    reliable signal. The environment and module path remain fallbacks for single-profile
+    setups.
+    """
+    home = getattr(getattr(ctx, "_manager", None), "home_path", None)
+    if home:
+        try:
+            return paths.profile_name_of_home(home)
+        except Exception:
+            logger.debug("profile home resolution failed", exc_info=True)
+    return paths.profile_name()
+
+
 def register_plugin(ctx) -> None:
     config = load_config(ctx)
-    profile = paths.profile_name()
+    profile = _profile_from_context(ctx)
     state_value = str(config["ledger"].get("state_path") or "").strip()
     state_path = paths.expand_path(state_value) if state_value else paths.default_bus_state_path()
     db = Database(state_path)
