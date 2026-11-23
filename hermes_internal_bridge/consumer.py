@@ -140,11 +140,24 @@ class ProfileConsumer:
                 "chat_id": destination.get("chat_id", ""),
                 "thread_id": destination.get("thread_id", "") or "",
                 "user_id": destination.get("user_id") or envelope.source.get("user_id") or "",
+                # Hermes reads a missing chat_type as "dm", which changes the session key
+                # (telegram:group:<chat> vs telegram:dm:<chat>) and the injection is refused
+                # with "no human message admitted yet".
+                "chat_type": self._origin_chat_type(destination, envelope),
             }
             return bool(self.injector(origin=origin, content=content))
         if self.keyless_injector is not None:
             return bool(self.keyless_injector(content=content))
         return False
+
+    @staticmethod
+    def _origin_chat_type(destination: dict, envelope: Envelope) -> str:
+        explicit = str(destination.get("chat_type") or "").strip()
+        if explicit:
+            return explicit
+        if str(destination.get("chat_id", "")).strip().startswith("-"):
+            return "group"
+        return str(envelope.source.get("chat_type") or "dm")
 
     def _agent_content(self, envelope: Envelope) -> str:
         header = relay_marker(envelope.relay_id, envelope.hop)

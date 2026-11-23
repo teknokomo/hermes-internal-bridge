@@ -57,6 +57,7 @@ def test_injection_origin_carries_source_user(tmp_path):
     assert origin["user_id"] == "7186764"
     assert origin["thread_id"] == "27"
     assert origin["platform"] == "telegram"
+    assert origin["chat_type"] == "group"
 
 
 def test_inject_true_marks_delivered(tmp_path):
