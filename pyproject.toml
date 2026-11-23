@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hermes-internal-bridge"
-version = "0.1.1"
+version = "0.1.0"
 description = "Hermes Internal Bridge (HIB): chat relay, trigger gate, route policy, local bus, context handoff and audit ledger between Hermes profiles"
 readme = "README.md"
 requires-python = ">=3.11"
