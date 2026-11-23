@@ -39,6 +39,26 @@ def make_consumer(components, *, injector=None, display=None):
     return consumer
 
 
+def test_injection_origin_carries_source_user(tmp_path):
+    """Hermes resolves the target session by ``from:<user_id>``; an empty user_id reads as
+    'no human message in this chat yet' and the injection is refused."""
+    components, _ = make_components(tmp_path, profile="target-profile", roster=[{"profile": "target-profile"}])
+    injector = FakeInjector(True)
+    consumer = make_consumer(components, injector=injector)
+    envelope = new_chat_message_envelope(
+        source={"instance_id": "local", "profile": "source-profile", "platform": "telegram",
+                "user_id": "7186764", "chat_id": "7186764", "thread_id": "", "message_id": ""},
+        destination={"instance_id": "local", "profile": "target-profile",
+                     "chat_id": "-1002181119671", "thread_id": "27"},
+        text="проверка",
+    )
+    assert consumer._inject(envelope, "проверка") is True
+    origin = injector.calls[-1]["origin"]
+    assert origin["user_id"] == "7186764"
+    assert origin["thread_id"] == "27"
+    assert origin["platform"] == "telegram"
+
+
 def test_inject_true_marks_delivered(tmp_path):
     components, _ = make_components(tmp_path, profile="target-profile", roster=[{"profile": "target-profile"}])
     consumer = make_consumer(components)

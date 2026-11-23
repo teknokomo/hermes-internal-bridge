@@ -139,7 +139,7 @@ class ProfileConsumer:
                 "platform": str(destination.get("platform") or envelope.source.get("platform") or ""),
                 "chat_id": destination.get("chat_id", ""),
                 "thread_id": destination.get("thread_id", "") or "",
-                "user_id": destination.get("user_id", "") or "",
+                "user_id": destination.get("user_id") or envelope.source.get("user_id") or "",
             }
             return bool(self.injector(origin=origin, content=content))
         if self.keyless_injector is not None:
