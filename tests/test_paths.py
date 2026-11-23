@@ -25,6 +25,18 @@ def test_default_profile_home_is_root_itself(tmp_path, monkeypatch):
     assert paths.profile_name() == "default"
 
 
+def test_profile_name_resolved_from_plugin_path_in_multiplex(tmp_path):
+    """One multiplexed process serves several profiles with the same HERMES_HOME;
+    the plugin copy's own location must win over the environment."""
+    module = tmp_path / "profiles" / "hib-test" / "plugins" / "hermes-internal-bridge" / "hermes_internal_bridge" / "paths.py"
+    assert paths.profile_name(module_path=module, env={"HERMES_HOME": str(tmp_path)}) == "hib-test"
+
+
+def test_profile_name_default_for_root_copy(tmp_path):
+    module = tmp_path / "plugins" / "hermes-internal-bridge" / "hermes_internal_bridge" / "paths.py"
+    assert paths.profile_name(module_path=module, env={"HERMES_HOME": str(tmp_path)}) == "default"
+
+
 def test_two_profiles_share_one_root(tmp_path, monkeypatch):
     """The shared bus must land on the same database for every profile of a host."""
     root = _prep_root(tmp_path / "hermes-root")

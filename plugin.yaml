@@ -1,5 +1,5 @@
 name: hermes-internal-bridge
-version: "0.1.0"
+version: "0.1.1"
 manifest_version: 2
 requires_hermes: ">=0.23.1"
 description: "Internal bridge between Hermes profiles: chat relay with a trigger gate, deterministic route policy, a durable local message bus, context handoff, artifact references, and an audit ledger."
